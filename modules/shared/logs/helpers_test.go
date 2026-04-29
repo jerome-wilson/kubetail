@@ -431,6 +431,7 @@ func TestMergeLogStreamsContextCancellation(t *testing.T) {
 	for _, record := range records {
 		ch <- record
 	}
+	close(ch) // Close the channel after populating it
 
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -461,6 +462,29 @@ func TestMergeLogStreamsContextCancellation(t *testing.T) {
 		case <-timeout:
 			t.Fatal("channel should be closed after context cancellation")
 		}
+	}
+}
+
+// TestMergeLogStreamsContextCancellationWhileBlocking verifies that mergeLogStreams
+// properly responds to context cancellation even when blocked waiting for input.
+func TestMergeLogStreamsContextCancellationWhileBlocking(t *testing.T) {
+	// Create an unbuffered channel that will block on read
+	ch := make(chan LogRecord)
+
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Run mergeLogStreams - it will block waiting for input from ch
+	merged := mergeLogStreams(ctx, false, ch)
+
+	// Cancel context immediately (before any data is sent)
+	cancel()
+
+	// If the fix works, this read returns immediately with ok=false
+	// If broken, the test hangs and Go's test timeout catches it
+	_, ok := <-merged
+	if ok {
+		t.Fatal("expected channel to be closed, but received a value")
 	}
 }
 
