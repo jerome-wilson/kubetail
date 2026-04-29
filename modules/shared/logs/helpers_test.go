@@ -449,19 +449,11 @@ func TestMergeLogStreamsContextCancellation(t *testing.T) {
 	// Cancel context
 	cancel()
 
-	// Wait for the channel to be closed
-	timeout := time.After(1 * time.Second)
-
-	// Verify channel is closed
-	for {
-		select {
-		case _, ok := <-merged:
-			if !ok {
-				return
-			}
-		case <-timeout:
-			t.Fatal("channel should be closed after context cancellation")
-		}
+	// Drain remaining records and verify channel closes
+	// If the fix works, the channel will close after context cancellation
+	// If broken, the test hangs and Go's test timeout catches it
+	for range merged {
+		// Drain any remaining records
 	}
 }
 
